@@ -9,9 +9,20 @@ interface ProxyServer {
   responseTime?: number
 }
 
+const DEFAULT_SERVERS: ProxyServer[] = [
+  { name: 'ghproxy.net', status: '' },
+  { name: 'gh.llkk.cc', status: '' },
+  { name: 'gitproxy.click', status: '' },
+  { name: 'github.tbedu.top', status: '' },
+  { name: 'ghfile.geekertao.top', status: '' },
+  { name: 'ghf.xn--eqrr82bzpe.top', status: '' },
+  { name: 'ghm.078465.xyz', status: '' }
+]
+
 const proxyServers = ref<ProxyServer[]>([])
 const isTesting = ref(false)
 const editingServer = ref<ProxyServer | null>(null)
+const editingOriginalName = ref('')
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const showCleanConfirmModal = ref(false)
@@ -20,35 +31,29 @@ const newServerName = ref('')
 const loadProxyServers = async () => {
   try {
     let resultJson = await window.ztools.db.get('proxyServers')
-    if(resultJson==null ){
-      proxyServers.value = [
-        { name: 'ghproxy.net', status: '' },
-        { name: 'gh.llkk.cc', status: '' },
-        { name: 'gitproxy.click', status: '' },
-        { name: 'github.tbedu.top', status: '' },
-        { name: 'ghfile.geekertao.top', status: '' },
-        { name: 'ghf.xn--eqrr82bzpe.top', status: '' },
-        { name: 'ghm.078465.xyz', status: '' }
-      ]
+    if (resultJson === null) {
+      proxyServers.value = [...DEFAULT_SERVERS]
       await testAllServers()
       resultJson = await window.ztools.db.get('proxyServers')
     }
-    const result = JSON.parse(resultJson.data)
-    if (result && Array.isArray(result)&& result.length > 0) {      
+    
+    let result: ProxyServer[] = []
+    if (resultJson && resultJson.data) {
+      try {
+        result = JSON.parse(resultJson.data)
+      } catch {
+        result = []
+      }
+    }
+    
+    if (result && Array.isArray(result) && result.length > 0) {
       proxyServers.value = result
     } else {
-      proxyServers.value = [
-        { name: 'ghproxy.net', status: '' },
-        { name: 'gh.llkk.cc', status: '' },
-        { name: 'gitproxy.click', status: '' },
-        { name: 'github.tbedu.top', status: '' },
-        { name: 'ghfile.geekertao.top', status: '' },
-        { name: 'ghf.xn--eqrr82bzpe.top', status: '' },
-        { name: 'ghm.078465.xyz', status: '' }
-      ]
+      proxyServers.value = [...DEFAULT_SERVERS]
       await testAllServers()
     }
   } catch (error) {
+    console.error('加载代理服务器列表失败:', error)
     window.ztools.showNotification('代理服务器列表加载失败，请检查数据库连接')
   }
 }
@@ -56,7 +61,8 @@ const loadProxyServers = async () => {
 const saveProxyServers = async () => {
   try {
     await window.ztools.db.remove('proxyServers')
-    await window.ztools.db.put({ _id: 'proxyServers', data: JSON.stringify(proxyServers.value)})
+    // 此处只执行put操作，无法更新数据，需要先删除再插入
+    await window.ztools.db.put({ _id: 'proxyServers', data: JSON.stringify(proxyServers.value) })
   } catch (error) {
     console.error('保存代理服务器列表失败:', error)
     window.ztools.showNotification('代理服务器列表保存失败，请检查数据库连接')
@@ -64,9 +70,6 @@ const saveProxyServers = async () => {
 }
 
 const testServer = async (server: ProxyServer) => {
-  if (isTesting.value) return
-  
-  isTesting.value = true
   server.status = '测试中...'
   
   try {
@@ -89,15 +92,16 @@ const testServer = async (server: ProxyServer) => {
   } catch (error) {
     server.status = '连接超时'
   }
-  
-  isTesting.value = false
-  await saveProxyServers()
 }
 
 const testAllServers = async () => {
-  for (const server of proxyServers.value) {
-    await testServer(server)
-  }
+  isTesting.value = true
+  
+  const promises = proxyServers.value.map(server => testServer(server))
+  await Promise.all(promises)
+  
+  isTesting.value = false
+  await saveProxyServers()
 }
 
 const addServer = () => {
@@ -114,23 +118,26 @@ const addServer = () => {
 
 const editServer = (server: ProxyServer) => {
   editingServer.value = { ...server }
+  editingOriginalName.value = server.name
   showEditModal.value = true
 }
 
 const saveEdit = () => {
   if (!editingServer.value) return
   
-  const index = proxyServers.value.findIndex(s => s.name === editingServer.value?.name)
+  const index = proxyServers.value.findIndex(s => s.name === editingOriginalName.value)
   if (index !== -1) {
     proxyServers.value[index] = { ...editingServer.value }
   }
   editingServer.value = null
+  editingOriginalName.value = ''
   showEditModal.value = false
   saveProxyServers()
 }
 
 const cancelEdit = () => {
   editingServer.value = null
+  editingOriginalName.value = ''
   showEditModal.value = false
 }
 

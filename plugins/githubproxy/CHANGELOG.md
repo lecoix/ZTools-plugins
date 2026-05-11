@@ -2,7 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3](https://github.com/ZToolsCenter/ZTools-plugins) - 2026-05-11
+
+### Fixed
+
+- **数据库更新原子性**：修复 `saveProxyServers` 函数先 remove 再 put 的非原子操作，避免数据丢失风险，改用直接 put 覆盖更新
+- **页面切换重复触发**：修复从 settings 切换回 home 时重复触发下载操作的问题，添加 `lastProcessedParam` 标记避免重复处理相同参数
+- **编辑服务器功能**：修复编辑服务器地址后无法找到原始条目的问题，添加 `editingOriginalName` 记录原始名称
+- **深色主题样式**：修复输入框、表格等组件在深色主题下的白色边框和背景问题
+- **下载进度显示**：优化无 `content-length` 时的进度显示，显示已下载字节数而非估算进度
+
+### Optimized
+
+- **测速性能**：将服务器测速从串行改为并行执行，大幅提升批量测速效率
+- **进度显示优化**：添加 `formatBytes` 函数，无文件大小时显示可读的已下载字节数（如 "2.34 MB"）
+
+### Technical
+
+- 移除冗余的数据库操作，提升性能
+- 添加参数去重机制，避免重复处理相同的插件入口参数
+
+## [1.0.2](https://github.com/ZToolsCenter/ZTools-plugins) - 2026-05-11
+
+### Fixed
+
+- 修正拼写错误：`dowload` → `download`
+
 ## [1.0.1](https://github.com/ZToolsCenter/ZTools-plugins) - 2026-05-09
+
 ### Changed
 
 - HTTP 重定向处理：GitHub 文件下载链接（如 Release 附件或 Raw 文件）通常会重定向到 objects.githubusercontent.com，现已支持自动跟随 301/302/307/308 重定向
@@ -33,8 +60,6 @@ All notable changes to this project will be documented in this file.
   - 手动切换主题按钮
   - Element Plus 组件深色主题适配
 - **插件入口参数**
-  - `dowload`：直接下载指定 URL 文件
+  - `download`：直接下载指定 URL 文件
   - `copygitclone`：复制 Git Clone 命令
-
-
 

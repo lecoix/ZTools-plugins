@@ -118,14 +118,13 @@ window.services = {
             
             if (typeof onProgress === 'function') {
               if (hasContentLength && totalSize > 0) {
-                // 有content-length头，计算精确进度
+                // 有content-length头，计算精确进度（0-100）
                 const progress = Math.round((downloadedSize / totalSize) * 100);
                 onProgress(progress);
               } else {
-                // 没有content-length头，显示动态进度
-                // 根据下载字节数估算进度，确保进度会变化
-                const estimatedProgress = Math.min(99, Math.round((downloadedSize / (1024 * 1024)) * 10));
-                onProgress(estimatedProgress);
+                // 没有content-length头，返回负数表示进度未知，携带已下载字节数
+                // 格式：-downloadedSize（负的已下载字节数）
+                onProgress(-downloadedSize);
               }
             }
           });

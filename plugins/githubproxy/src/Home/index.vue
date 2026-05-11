@@ -14,26 +14,45 @@ const props = defineProps<{
 }>()
 
 const proxyServers = ref<ProxyServer[]>([])
-const selectedProxy = ref('ghproxy.net')
+const selectedProxy = ref('')
 const githubUrl = ref('')
 const activeTab = ref<'git' | 'wget' | 'curl' | 'direct'>('git')
 const isDownloading = ref(false)
 const downloadProgress = ref(0)
+let downloadedBytes = 0
+let lastProcessedParam = ''
+
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
 
 const loadProxyServers = async () => {
   try {
     const proxyResult = await window.ztools.db.get('proxyServers')
 
-    if(!proxyResult ){
-      window.ztools.showNotification('代理服务器列表为空,请先添加代理服务器')
+    if (!proxyResult) {
+      window.ztools.showNotification('代理服务器列表为空，请先添加代理服务器')
       return
     }
 
-    const result = JSON.parse(proxyResult.data)
-    if (result && Array.isArray(result)) {
+    let result: ProxyServer[] = []
+    if (proxyResult.data) {
+      try {
+        result = JSON.parse(proxyResult.data)
+      } catch {
+        window.ztools.showNotification('代理服务器列表数据格式错误')
+        return
+      }
+    }
+
+    if (result && Array.isArray(result) && result.length > 0) {
       proxyServers.value = result
     } else {
-      window.ztools.showNotification('代理服务器列表为空,请先添加代理服务器')
+      window.ztools.showNotification('代理服务器列表为空，请先添加代理服务器')
       return
     }
 
@@ -50,12 +69,15 @@ const loadProxyServers = async () => {
       selectedProxy.value = proxyServers.value[0].name
     }
   } catch (error) {
-      window.ztools.showNotification('代理服务器列表加载失败，请检查数据库连接')
+    console.error('加载代理服务器列表失败:', error)
+    window.ztools.showNotification('代理服务器列表加载失败，请检查数据库连接')
   }
 }
 
 const saveSelectedProxy = async () => {
   try {
+    await window.ztools.db.remove('selectedProxy')
+    // 此处只执行put操作，无法更新数据，需要先删除再插入
     await window.ztools.db.put({ _id: 'selectedProxy', data: selectedProxy.value })
   } catch (error) {
     console.error('保存代理选择失败:', error)
@@ -118,11 +140,20 @@ const downloadFile = async () => {
   
   isDownloading.value = true
   downloadProgress.value = 0
+  downloadedBytes = 0
   
   try {
     const savePath = await window.services.downloadFile(proxyUrl.value, {
       onProgress: (progress: number) => {
-        downloadProgress.value = progress
+        if (progress >= 0) {
+          // 正数表示精确进度百分比（0-100）
+          downloadProgress.value = progress
+          downloadedBytes = 0
+        } else {
+          // 负数表示进度未知，值为负的已下载字节数
+          downloadProgress.value = -1
+          downloadedBytes = -progress
+        }
       }
     })
     
@@ -138,6 +169,15 @@ const downloadFile = async () => {
 
 const handleLaunchParam = async (param: { code?: string; payload?: string }) => {
   if (!param.code || !param.payload) return
+  
+  // 生成唯一标识来判断是否已经处理过该参数
+  const paramKey = `${param.code}-${param.payload}`
+  
+  // 如果已经处理过相同的参数，则跳过
+  if (lastProcessedParam === paramKey) return
+  
+  // 标记为已处理
+  lastProcessedParam = paramKey
   
   githubUrl.value = param.payload
   
@@ -202,7 +242,7 @@ onMounted(() => {
                   </template>
                   <template #append>
                     <el-button type="primary" @click="downloadFile" :icon="Download" :disabled="isDownloading">
-                      {{ isDownloading ? `下载中 ${downloadProgress}%` : '下载' }}
+                      {{ isDownloading ? (downloadProgress >= 0 ? `下载中 ${downloadProgress}%` : `下载中 ${formatBytes(downloadedBytes)}`) : '下载' }}
                     </el-button>
                   </template>
                 </el-input>
@@ -330,7 +370,7 @@ onMounted(() => {
   padding: 16px;
   background-color: var(--bg-secondary);
   border-radius: 4px;
-  min-height: 50px;
+  min-height: 45px;
 }
 
 .command-code {
