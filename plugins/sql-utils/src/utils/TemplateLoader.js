@@ -26,7 +26,6 @@ class TemplateLoader {
     }
 
     try {
-      // 使用raw-loader导入的模板内容
       this.templates = {
         'javaBean': javaEntityTemplate,
         'mapper': mapperTemplate,

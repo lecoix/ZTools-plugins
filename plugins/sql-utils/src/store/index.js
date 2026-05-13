@@ -1,17 +1,14 @@
-import Vue from 'vue';
-import Vuex from 'vuex';
+import { defineStore } from 'pinia'
 
-Vue.use(Vuex);
-
-export default new Vuex.Store({
-    state: {
-        isDarkTheme: false,
-        codeEditorThemeMode: 'dracula', // 代码编辑器主题
-    },
-    mutations: {
-        updateIsDarkTheme(state, newValue) {
-            state.isDarkTheme = newValue;
-            state.codeEditorThemeMode = newValue ? 'dracula' : 'base16-light';
-        }
+export const useAppStore = defineStore('app', {
+  state: () => ({
+    isDarkTheme: false,
+    codeEditorThemeMode: 'dracula'
+  }),
+  actions: {
+    updateIsDarkTheme(newValue) {
+      this.isDarkTheme = newValue
+      this.codeEditorThemeMode = newValue ? 'dracula' : 'base16-light'
     }
-});
+  }
+})
