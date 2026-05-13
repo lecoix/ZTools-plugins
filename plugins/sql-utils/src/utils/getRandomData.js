@@ -80,10 +80,7 @@ export function getIdCard() {
     const day = ('0' + Math.floor(Math.random() * 28 + 1)).slice(-2);
     const birthDate = `${year}${month}${day}`;
 
-    let sequenceCode;
-    do {
-        sequenceCode = ('00' + Math.floor(Math.random() * 999)).slice(-3);
-    } while (sequenceCode.startsWith('0'));
+    const sequenceCode = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
     let idCardNumber = areaCode + birthDate + sequenceCode;
 
@@ -134,7 +131,7 @@ export function getImageUrl() {
  */
 export function getAvatarUrl() {
     const avatarStyle = commonConsts.avatarStyles[Math.floor(Math.random() * commonConsts.avatarStyles.length)];
-    return `https://api.dicebear.com/9.x/${avatarStyle}/svg?seed=` + this.getStr(this.getNumber(4, 16), true, true, true, false);
+    return `https://api.dicebear.com/9.x/${avatarStyle}/svg?seed=` + getStr(getNumber(4, 16), true, true, true, false);
 }
 
 

@@ -1,780 +1,524 @@
 <template>
   <div class="app">
-    <div class="gtdTop"
-         ref="gtdTop"
-         :class="{ expanded: isExpanded }"
-         :style="{ maxHeight: headerMaxHeight }"
-    >
-      <el-form :inline="true" size="mini">
-        <el-form-item v-for="category in fieldTypes" :key="category.type">
-          <el-button-group>
-            <el-button class="field-type-button" type="info" plain disabled>
-              <i :class="category.icon"/>{{ category.type }}
-            </el-button>
-            <el-button
-                v-for="field in category.fields"
-                :key="field.label"
-                plain
-                @click="addField(field)"
-            >
-              {{ field.label }}
-            </el-button>
-          </el-button-group>
-        </el-form-item>
-      </el-form>
-      <div class="openBtn">
-        <el-link :underline="false" :icon="isExpanded ? 'el-icon-caret-top' : 'el-icon-caret-bottom'"
-                 @click="toggleExpand">
-          {{ isExpanded ? '收起' : '展开' }}
-        </el-link>
-      </div>
+    <div class="gtdTop">
+      <n-space :size="8" :wrap="true">
+        <n-button-group v-for="category in fieldTypes" :key="category.type">
+          <n-button size="small" disabled>{{ category.type }}</n-button>
+          <n-button v-for="field in category.fields" :key="field.label" size="small" @click="addField(field)">
+            {{ field.label }}
+          </n-button>
+        </n-button-group>
+      </n-space>
     </div>
 
     <div class="gtdMiddle">
-      <el-form :inline="true" size="mini" style="margin-top: 10px">
-        <el-form-item label="生成数量">
-          <el-input-number v-model="form.count" :min="1" :max="1000"></el-input-number>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="success" @click="generateData">生成</el-button>
-          <el-button v-if="activeTab === 'table'" type="primary" @click="copyAsTVS" class="copy-with-header-btn">
-            复制
-            <el-tooltip
-                class="item"
-                effect="dark"
-                :content="includeHeaderInCopy ? '✅复制结果包含表头（点击切换）' : '❎复制结果不含表头（点击切换）'"
-                placement="bottom">
-              <i
-                  :class="includeHeaderInCopy ? 'el-icon-s-claim copy-header-icon' : 'el-icon-s-release copy-header-icon'"
-                  @click.stop="toggleIncludeHeader"
-              />
-            </el-tooltip>
-          </el-button>
-          <el-button v-if="activeTab === 'table'" type="primary" @click="copyAsSQL">复制为SQL</el-button>
-          <el-button v-if="activeTab === 'table'" type="primary" @click="copyAsJSON">复制为JSON</el-button>
-          <el-button type="info" plain @click="clearData">清空</el-button>
-        </el-form-item>
-      </el-form>
+      <n-space :size="8" align="center" style="margin-top: 10px">
+        <span>生成数量</span>
+        <n-input-number v-model:value="form.count" :min="1" :max="1000" size="small" />
+        <n-button type="primary" size="small" @click="generateData">生成</n-button>
+        <n-button v-if="activeTab === 'table'" type="primary" size="small" @click="copyAsTVS">
+          复制
+          <n-tooltip trigger="hover" placement="bottom">
+            <template #trigger>
+              <n-icon class="copy-header-icon" @click.stop="toggleIncludeHeader">
+                <Icon :icon="includeHeaderInCopy ? 'icon-park-outline:check-one' : 'icon-park-outline:close-one'" />
+              </n-icon>
+            </template>
+            {{ includeHeaderInCopy ? '复制结果包含表头（点击切换）' : '复制结果不含表头（点击切换）' }}
+          </n-tooltip>
+        </n-button>
+        <n-button v-if="activeTab === 'table'" type="primary" size="small" @click="copyAsSQL">复制为SQL</n-button>
+        <n-button v-if="activeTab === 'table'" type="primary" size="small" @click="copyAsJSON">复制为JSON</n-button>
+        <n-button size="small" @click="clearData">清空</n-button>
+      </n-space>
     </div>
 
-    <div class="gtdBottom" ref="gtdBottom">
-      <el-tabs v-if="form.fields.length > 0" v-model="activeTab" class="content-tabs">
-        <el-tab-pane label="字段配置" name="config">
-          <!-- 字段卡片展示区域 -->
+    <div class="gtdBottom" ref="gtdBottomRef">
+      <n-tabs v-if="form.fields.length > 0" v-model:value="activeTab" type="line" class="content-tabs">
+        <n-tab-pane name="config" tab="字段配置">
           <div class="field-cards-container">
             <div class="field-list">
-              <el-card
-                  v-for="(field, index) in form.fields"
-                  :key="field.id"
-                  class="field-card"
-              >
-                <div slot="header" class="field-card-header">
+              <n-card v-for="(field, index) in form.fields" :key="field.id" size="small" class="field-card">
+                <template #header>
                   <div class="field-header">
                     <div class="field-info">
                       <span class="field-index">{{ index + 1 }}.</span>
-                      <el-tag size="mini" effect="plain" type="info">{{ field.type }}</el-tag>
+                      <n-tag size="small" :bordered="false">{{ field.type }}</n-tag>
                     </div>
-                    <el-input
-                        v-model="field.name"
-                        size="mini"
-                        :placeholder="`[${field.type}]请输入字段名`"
-                        class="field-name-input"
-                    />
-                    <el-link type="danger" icon="el-icon-close" @click="removeField(field.id)"></el-link>
+                    <n-input v-model:value="field.name" size="small" :placeholder="`[${field.type}]请输入字段名`" class="field-name-input" />
+                    <n-button text type="error" size="small" @click="removeField(field.id)">
+                      <template #icon><n-icon><Icon icon="icon-park-outline:close" /></n-icon></template>
+                    </n-button>
                   </div>
-                </div>
+                </template>
                 <div class="field-card-body">
-                  <!-- 配置项区域 -->
-                  <div
-                      v-if="field.configs && (showConfigButtonTypes.includes(field.type) || field.type === '图片' || field.type === '头像')"
-                      class="field-configs">
-                    <!-- 整数/小数配置 -->
+                  <div v-if="field.configs && (showConfigButtonTypes.includes(field.type) || field.type === '图片' || field.type === '头像')" class="field-configs">
                     <div v-if="field.type === '整数' || field.type === '小数'" class="config-row">
                       <div class="config-item">
                         <label>最小值</label>
-                        <el-input-number v-model="field.configs.min" size="mini" :controls="false"
-                                         style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.min" size="small" :controls="false" style="width: 100%" />
                       </div>
                       <div class="config-item">
                         <label>最大值</label>
-                        <el-input-number v-model="field.configs.max" size="mini" :controls="false"
-                                         style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.max" size="small" :controls="false" style="width: 100%" />
                       </div>
                       <div v-if="field.type === '小数'" class="config-item">
                         <label>小数位</label>
-                        <el-input-number v-model="field.configs.fractionDigits" size="mini" :controls="false" :min="0"
-                                         :max="10" style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.fractionDigits" size="small" :controls="false" :min="0" :max="10" style="width: 100%" />
                       </div>
                     </div>
 
-                    <!-- 文字配置 -->
                     <div v-if="field.type === '文字'" class="config-row">
                       <div class="config-item">
                         <label>最少字数</label>
-                        <el-input-number v-model="field.configs.minLength" size="mini" :controls="false"
-                                         style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.minLength" size="small" :controls="false" style="width: 100%" />
                       </div>
                       <div class="config-item">
                         <label>最大字数</label>
-                        <el-input-number v-model="field.configs.maxLength" size="mini" :controls="false"
-                                         style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.maxLength" size="small" :controls="false" style="width: 100%" />
                       </div>
                     </div>
 
-                    <!-- 日期/时间戳配置 -->
                     <div v-if="['日期','时间戳'].includes(field.type)" class="config-row">
                       <div class="config-item full-width">
                         <label>类型</label>
-                        <el-radio-group v-model="field.configs.dateType" size="mini">
-                          <el-radio-button label="date">日期</el-radio-button>
-                          <el-radio-button label="datetime">日期时间</el-radio-button>
-                        </el-radio-group>
+                        <n-radio-group v-model:value="field.configs.dateType" size="small">
+                          <n-radio-button value="date">日期</n-radio-button>
+                          <n-radio-button value="datetime">日期时间</n-radio-button>
+                        </n-radio-group>
                       </div>
                       <div class="config-item full-width">
                         <label>开始日期</label>
-                        <el-date-picker
-                            v-model="field.configs.startDate"
-                            :type="field.configs.dateType"
-                            size="mini"
-                            style="width: 100%"
-                            :format="field.configs.dateType === 'date' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm:ss'"
-                            :value-format="field.configs.dateType === 'date' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm:ss'"
-                        />
+                        <n-date-picker v-model:formatted-value="field.configs.startDate" :type="field.configs.dateType === 'date' ? 'date' : 'datetime'" size="small" style="width: 100%" :format="field.configs.dateType === 'date' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm:ss'" value-format="yyyy-MM-dd HH:mm:ss" clearable />
                       </div>
                       <div class="config-item full-width">
                         <label>结束日期</label>
-                        <el-date-picker
-                            v-model="field.configs.endDate"
-                            :type="field.configs.dateType"
-                            size="mini"
-                            style="width: 100%"
-                            :format="field.configs.dateType === 'date' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm:ss'"
-                            :value-format="field.configs.dateType === 'date' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm:ss'"
-                        />
+                        <n-date-picker v-model:formatted-value="field.configs.endDate" :type="field.configs.dateType === 'date' ? 'date' : 'datetime'" size="small" style="width: 100%" :format="field.configs.dateType === 'date' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm:ss'" value-format="yyyy-MM-dd HH:mm:ss" clearable />
                       </div>
                     </div>
 
-                    <!-- 编码配置 -->
                     <div v-if="field.type === '编码'" class="config-row">
                       <div class="config-item">
                         <label>前缀</label>
-                        <el-input v-model="field.configs.prefix" size="mini" placeholder="前缀"></el-input>
+                        <n-input v-model:value="field.configs.prefix" size="small" placeholder="前缀" />
                       </div>
                       <div class="config-item">
                         <label>起始值</label>
-                        <el-input-number v-model="field.configs.initVal" size="mini" :controls="false"
-                                         style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.initVal" size="small" :controls="false" style="width: 100%" />
                       </div>
                       <div class="config-item">
                         <label>步长</label>
-                        <el-input-number v-model="field.configs.step" size="mini" :controls="false"
-                                         style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.step" size="small" :controls="false" style="width: 100%" />
                       </div>
                       <div class="config-item">
-                        <label>
-                          序号长度
-                          <el-tooltip content="自增数字，不足位数自动补0" placement="top">
-                            <i class="el-icon-warning-outline" style="color: #909399;"></i>
-                          </el-tooltip>
-                        </label>
-                        <el-input-number v-model="field.configs.sequenceLength" size="mini" :controls="false" :min="1"
-                                         style="width: 100%"></el-input-number>
+                        <label>序号长度</label>
+                        <n-input-number v-model:value="field.configs.sequenceLength" size="small" :controls="false" :min="1" style="width: 100%" />
                       </div>
                       <div class="config-item">
                         <label>日期格式</label>
-                        <el-select v-model="field.configs.dateFormat" size="mini" style="width: 100%">
-                          <el-option label="无日期" value=""></el-option>
-                          <el-option label="yyyyMM" value="yyyyMM"></el-option>
-                          <el-option label="yyyyMMdd" value="yyyyMMdd"></el-option>
-                        </el-select>
+                        <n-select v-model:value="field.configs.dateFormat" size="small" :options="[{label:'无日期',value:''},{label:'yyyyMM',value:'yyyyMM'},{label:'yyyyMMdd',value:'yyyyMMdd'}]" style="width: 100%" />
                       </div>
                       <div class="config-item">
                         <label>分隔符</label>
-                        <el-select v-model="field.configs.delimiter" size="mini" style="width: 100%">
-                          <el-option label="无分隔符" value=""></el-option>
-                          <el-option label="-" value="-"></el-option>
-                          <el-option label="_" value="_"></el-option>
-                          <el-option label="/" value="/"></el-option>
-                          <el-option label="." value="."></el-option>
-                        </el-select>
+                        <n-select v-model:value="field.configs.delimiter" size="small" :options="[{label:'无分隔符',value:''},{label:'-',value:'-'},{label:'_',value:'_'},{label:'/',value:'/'},{label:'.',value:'.'}]" style="width: 100%" />
                       </div>
                     </div>
 
-                    <!-- 枚举配置 -->
                     <div v-if="field.type === '枚举'" class="config-row">
                       <div class="config-item full-width">
                         <label>枚举值</label>
-                        <el-input
-                            v-model="field.configs.enumValues"
-                            type="textarea"
-                            :rows="3"
-                            size="mini"
-                            placeholder="多个枚举值用英文逗号隔开，每行一个或多个"
-                        ></el-input>
+                        <n-input v-model:value="field.configs.enumValues" type="textarea" :rows="3" size="small" placeholder="多个枚举值用英文逗号隔开，每行一个或多个" />
                       </div>
                     </div>
 
-                    <!-- UUID配置 -->
                     <div v-if="field.type === 'UUID'" class="config-row">
                       <div class="config-item">
-                        <el-checkbox v-model="field.configs.uppercase">大写</el-checkbox>
+                        <n-checkbox v-model:checked="field.configs.uppercase">大写</n-checkbox>
                       </div>
                       <div class="config-item">
-                        <el-checkbox v-model="field.configs.delimiter">保留分隔符</el-checkbox>
+                        <n-checkbox v-model:checked="field.configs.delimiter">保留分隔符</n-checkbox>
                       </div>
                     </div>
 
-                    <!-- 随机字符配置 -->
                     <div v-if="field.type === '随机字符'" class="config-row">
                       <div class="config-item">
                         <label>字符长度</label>
-                        <el-input-number v-model="field.configs.length" size="mini" :controls="false" :min="1"
-                                         :max="50" style="width: 100%"></el-input-number>
+                        <n-input-number v-model:value="field.configs.length" size="small" :controls="false" :min="1" :max="50" style="width: 100%" />
                       </div>
                       <div class="config-item full-width">
                         <label>字符源</label>
-                        <el-checkbox-group v-model="field.configs.strSource" size="mini">
-                          <el-checkbox label="digit">数字</el-checkbox>
-                          <el-checkbox label="upperLetter">大写字母</el-checkbox>
-                          <el-checkbox label="lowerLetter">小写字母</el-checkbox>
-                          <el-checkbox label="punctuation">标点符号</el-checkbox>
-                        </el-checkbox-group>
+                        <n-checkbox-group v-model:value="field.configs.strSource" size="small">
+                          <n-space :size="8">
+                            <n-checkbox value="digit">数字</n-checkbox>
+                            <n-checkbox value="upperLetter">大写字母</n-checkbox>
+                            <n-checkbox value="lowerLetter">小写字母</n-checkbox>
+                            <n-checkbox value="punctuation">标点符号</n-checkbox>
+                          </n-space>
+                        </n-checkbox-group>
                       </div>
                       <div v-if="field.configs.strSource.includes('punctuation')" class="config-item full-width">
                         <label>标点符号字符</label>
-                        <el-input v-model="field.configs.punctuationChars" size="mini" placeholder="请输入标点符号"></el-input>
+                        <n-input v-model:value="field.configs.punctuationChars" size="small" placeholder="请输入标点符号" />
                       </div>
                     </div>
 
-                    <!-- 图片/头像配置 -->
                     <div v-if="field.type === '图片' || field.type === '头像'" class="config-row">
                       <div class="config-item full-width">
                         <label>显示模式</label>
-                        <el-radio-group v-model="field.configs.displayMode" size="mini">
-                          <el-radio-button label="URL">
-                            <i class="el-icon-link"></i> URL
-                          </el-radio-button>
-                          <el-radio-button label="预览">
-                            <i class="el-icon-picture-outline"></i> 预览
-                          </el-radio-button>
-                        </el-radio-group>
+                        <n-radio-group v-model:value="field.configs.displayMode" size="small">
+                          <n-radio-button value="URL">URL</n-radio-button>
+                          <n-radio-button value="预览">预览</n-radio-button>
+                        </n-radio-group>
                       </div>
                     </div>
                   </div>
                 </div>
-              </el-card>
+              </n-card>
             </div>
           </div>
-        </el-tab-pane>
-        <el-tab-pane label="数据表格" name="table">
+        </n-tab-pane>
+        <n-tab-pane name="table" tab="数据表格">
           <div class="table-wrapper">
             <div class="table-container">
               <vxe-table
-                  ref="dataTable"
-                  border
-                  :data="pagedData"
-                  size="mini"
-                  height="100%"
-                  :column-config="columnConfig"
-                  :column-drag-config="columnDragConfig"
-                  :seq-config="{startIndex: (currentPage - 1) * pageSize}"
-                  @column-dragend="handleColumnDragEnd"
+                ref="dataTableRef"
+                border
+                :data="pagedData"
+                size="mini"
+                height="100%"
+                :column-config="{ drag: true }"
+                :seq-config="{ startIndex: (currentPage - 1) * pageSize }"
+                @column-dragend="handleColumnDragend"
               >
-              <vxe-column type="seq" title="#" width="50" fixed="left"></vxe-column>
-              <vxe-column
-                  v-for="field in form.fields"
-                  :key="field.id"
-                  :field="field.id"
-                  :title="field.name"
-                  :header-cell-class-name="{ blink: field.highlight }"
-              >
-                <template #default="{ row }">
-                  <div
-                      v-if="(field.type === '图片' || field.type === '头像') && field.configs && field.configs.displayMode !== 'URL'">
-                    <el-image
-                        style="width: 100px; height: 100px"
-                        :src="row[field.id]"
-                        :preview-src-list="[row[field.id]]"
-                    >
-                      <template #placeholder>
-                        <i class="el-icon-loading"></i>
-                      </template>
-                    </el-image>
-                  </div>
-                  <div v-else>
-                    {{ row[field.id] }}
-                  </div>
-                </template>
-              </vxe-column>
-            </vxe-table>
+                <vxe-column type="seq" title="#" width="50" fixed="left"></vxe-column>
+                <vxe-column v-for="field in form.fields" :key="field.id" :field="field.id" :title="field.name">
+                  <template #default="{ row }">
+                    <div v-if="(field.type === '图片' || field.type === '头像') && field.configs && field.configs.displayMode !== 'URL'">
+                      <n-image width="100" height="100" :src="row[field.id]" />
+                    </div>
+                    <div v-else>{{ row[field.id] }}</div>
+                  </template>
+                </vxe-column>
+              </vxe-table>
             </div>
-            <el-pagination
-                small
-                layout="total, sizes, prev, pager, next"
-                :current-page.sync="currentPage"
-                :page-size="pageSize"
-                :page-sizes="[20, 50, 100, 200]"
-                :total="generatedData.length"
-                @size-change="handleSizeChange"
-                @current-change="handleCurrentChange"
-            />
+            <n-pagination
+              size="small"
+              :page="currentPage"
+              :page-size="pageSize"
+              :page-sizes="[20, 50, 100, 200]"
+              :item-count="generatedData.length"
+              show-size-picker
+              @update:page="currentPage = $event"
+              @update:page-size="handleSizeChange"
+            >
+              <template #prefix="{ itemCount }">共 {{ itemCount }} 条</template>
+            </n-pagination>
           </div>
-        </el-tab-pane>
-      </el-tabs>
+        </n-tab-pane>
+      </n-tabs>
 
-      <!-- 无字段时的空状态 -->
       <div v-if="form.fields.length === 0" class="field-cards-container">
         <div class="empty-state">
-          <i class="el-icon-info"></i>
+          <n-icon size="48"><Icon icon="icon-park-outline:info" /></n-icon>
           <p>请在上方选择字段，配置完成后点击「生成」按钮生成测试数据</p>
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
-<script>
-import {fakerZH_CN as faker} from '@faker-js/faker';
-import dayjs from 'dayjs';
+<script setup>
+import { ref, reactive, computed, getCurrentInstance } from 'vue'
+import { fakerZH_CN as faker } from '@faker-js/faker'
+import dayjs from 'dayjs'
+import { Icon } from '@iconify/vue'
+import NotifyUtil from '@/utils/notifyUtil.js'
 
-export default {
-  components: {},
-  data() {
-    return {
-      columnConfig: {
-        drag: true
-      },
-      columnDragConfig: {
-        showGuidesStatus: true,
-        showIcon: true,
-        trigger: 'default'
-      },
-      headerMaxHeight: '80px',
-      isExpanded: false,
-      form: {
-        fields: [],
-        count: 1
-      },
+const { proxy } = getCurrentInstance()
 
-      showConfigButtonTypes: ['整数', '小数', '日期', '编码', '枚举',
-        '时间戳', '文字', 'UUID', '随机字符'],
-      fieldTypes: [
-        {
-          type: '常规',
-          icon: 'el-icon-coin',
-          fields: [
-            {
-              label: '编码',
-              generate: (configs, index) => this.$randomData.getCode(
-                  configs.prefix,
-                  configs.initVal,
-                  configs.step,
-                  configs.dateFormat,
-                  configs.delimiter,
-                  configs.sequenceLength,
-                  index
-              ),
-              configs: {
-                prefix: 'NO',
-                initVal: 1,
-                step: 1,
-                sequenceLength: 3,
-                dateFormat: '',
-                delimiter: ''
-              }
-            },
-            {
-              label: '整数',
-              generate: (configs) => this.$randomData.getNumber(configs.min, configs.max),
-              configs: {
-                min: 1,
-                max: 99999
-              }
-            },
-            {
-              label: '小数',
-              generate: (configs) => this.$randomData.getDecimal(configs.min, configs.max, configs.fractionDigits),
-              configs: {
-                min: 1,
-                max: 99999,
-                fractionDigits: 2
-              }
-            },
-            {
-              label: '日期',
-              generate: (configs) => this.$dateTimeUtil.randomDate(configs.startDate, configs.endDate, configs.dateType === 'date' ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm:ss'),
-              configs: {
-                dateType: 'date',
-                startDate: dayjs().hour(0).minute(0).second(0).format('YYYY-MM-DD HH:mm:ss'),
-                endDate: dayjs().add(7, 'day').hour(23).minute(59).second(59).format('YYYY-MM-DD HH:mm:ss')
-              }
-            },
-            {
-              label: '时间戳',
-              generate: (configs) => this.$dateTimeUtil.randomTimestamp(configs.startDate, configs.endDate),
-              configs: {
-                dateType: 'date',
-                startDate: dayjs().hour(0).minute(0).second(0).format('YYYY-MM-DD HH:mm:ss'),
-                endDate: dayjs().add(7, 'day').hour(23).minute(59).second(59).format('YYYY-MM-DD HH:mm:ss')
-              }
-            },
-            {
-              label: '枚举',
-              generate: (configs) => this.$randomData.getEnumValue(configs.enumValues),
-              configs: {
-                enumValues: ''
-              }
-            },
-            {
-              label: '文字',
-              generate: (configs) => this.$randomData.getChineseParagrap(configs.minLength, configs.maxLength),
-              configs: {minLength: 15, maxLength: 50}
-            },
-            {
-              label: '随机字符',
-              generate: (configs) => this.$randomData.getStrByArrConfig(configs.length, configs.strSource, configs.punctuationChars),
-              configs: {
-                length: 8,
-                strSource: ['digit', 'upperLetter', 'lowerLetter', 'punctuation'],
-                punctuationChars: '!@#$'
-              }
-            },
-            {
-              label: 'UUID',
-              generate: (configs) => this.$randomData.getUUID(configs.uppercase, configs.delimiter),
-              configs: {uppercase: true, delimiter: true}
-            },
-            {
-              label: '分布式ID',
-              generate: () => this.$randomData.getDistributedId()
-            },
-          ]
-        },
-        {
-          type: '人员',
-          icon: 'el-icon-user',
-          fields: [
-            {label: '姓名', generate: () => this.$randomData.getPersonName()},
-            {label: '身份证', generate: () => this.$randomData.getIdCard()},
-            {label: '手机号', generate: () => this.$randomData.getChineseMobile()},
-            {label: '邮箱', generate: () => this.$randomData.getEmail()},
-          ]
-        },
-        {
-          type: '位置',
-          icon: 'el-icon-location-outline',
-          fields: [
-            {label: '省份', generate: () => this.$randomData.getProvince()},
-            {label: '城市', generate: () => this.$randomData.getCity()},
-            {label: '区县', generate: () => this.$randomData.getArea()},
-            {label: '地址', generate: () => this.$randomData.getAddress()},
-          ]
-        },
-        {
-          type: '图像',
-          icon: 'el-icon-picture-outline',
-          fields: [
-            {label: '图片', generate: () => this.$randomData.getImageUrl(), configs: {displayMode: 'URL'}},
-            {label: '头像', generate: () => this.$randomData.getAvatarUrl(), configs: {displayMode: 'URL'}}
-          ]
-        },
-        {
-          type: '网络',
-          icon: 'el-icon-monitor',
-          fields: [
-            {label: 'ip地址', generate: () => faker.internet.ipv4()},
-            {label: '网址', generate: () => faker.internet.url()},
-            {label: '密码', generate: () => faker.internet.password()},
-            {label: 'emoji', generate: () => faker.internet.emoji()},
-          ]
-        },
-        {
-          type: '商业',
-          icon: 'el-icon-s-shop',
-          fields: [
-            {label: '公司名称', generate: () => faker.company.name()},
-            {label: '商品品类', generate: () => faker.commerce.department()},
-            {label: '商品名', generate: () => faker.commerce.productName()},
-            {label: '商品标题', generate: () => faker.commerce.productDescription()},
-            {label: '货币代码', generate: () => faker.finance.currencyCode()},
-            {label: '信用代码', generate: () => this.$randomData.getCreditCode()},
-          ]
-        },
-      ],
-      generatedData: [],
-      activeTab: 'config',
-      includeHeaderInCopy: true,
-      currentPage: 1,
-      pageSize: 50
-    };
+const gtdBottomRef = ref(null)
+const dataTableRef = ref(null)
+const activeTab = ref('config')
+const includeHeaderInCopy = ref(true)
+const currentPage = ref(1)
+const pageSize = ref(50)
+const generatedData = ref([])
+
+const form = reactive({
+  fields: [],
+  count: 1
+})
+
+const showConfigButtonTypes = ['整数', '小数', '日期', '编码', '枚举', '时间戳', '文字', 'UUID', '随机字符']
+
+const fieldTypes = [
+  {
+    type: '常规',
+    fields: [
+      { label: '编码', configs: { prefix: 'NO', initVal: 1, step: 1, sequenceLength: 3, dateFormat: '', delimiter: '' } },
+      { label: '整数', configs: { min: 1, max: 99999 } },
+      { label: '小数', configs: { min: 1, max: 99999, fractionDigits: 2 } },
+      { label: '日期', configs: { dateType: 'date', startDate: dayjs().hour(0).minute(0).second(0).format('YYYY-MM-DD HH:mm:ss'), endDate: dayjs().add(7, 'day').hour(23).minute(59).second(59).format('YYYY-MM-DD HH:mm:ss') } },
+      { label: '时间戳', configs: { dateType: 'date', startDate: dayjs().hour(0).minute(0).second(0).format('YYYY-MM-DD HH:mm:ss'), endDate: dayjs().add(7, 'day').hour(23).minute(59).second(59).format('YYYY-MM-DD HH:mm:ss') } },
+      { label: '枚举', configs: { enumValues: '' } },
+      { label: '文字', configs: { minLength: 15, maxLength: 50 } },
+      { label: '随机字符', configs: { length: 8, strSource: ['digit', 'upperLetter', 'lowerLetter', 'punctuation'], punctuationChars: '!@#$' } },
+      { label: 'UUID', configs: { uppercase: true, delimiter: true } },
+      { label: '分布式ID', configs: {} }
+    ]
   },
-  computed: {
-    pagedData() {
-      const start = (this.currentPage - 1) * this.pageSize;
-      const end = start + this.pageSize;
-      return this.generatedData.slice(start, end);
-    }
+  {
+    type: '人员',
+    fields: [
+      { label: '姓名', configs: {} },
+      { label: '身份证', configs: {} },
+      { label: '手机号', configs: {} },
+      { label: '邮箱', configs: {} }
+    ]
   },
-  methods: {
-    toggleExpand() {
-      this.isExpanded = !this.isExpanded;
-      this.$nextTick().then(() => {
-        this.headerMaxHeight = this.isExpanded
-            ? `${this.$refs.gtdTop.scrollHeight}px`
-            : '80px'
-      })
-    },
-    addField(field) {
-      const newField = {
-        id: `field_${Date.now()}`,
-        name: field.label,
-        type: field.label,
-        configs: field.configs ? JSON.parse(JSON.stringify(field.configs)) : undefined
-      }
-      this.form.fields.push(newField);
-      // 如果当前显示表格，切换到字段配置显示状态
-      if (this.activeTab === 'table') {
-        this.activeTab = 'config';
-      }
-    },
-    removeField(id) {
-      this.form.fields = this.form.fields.filter(field => field.id !== id);
-      // 如果删除后没有字段了，重置状态
-      if (this.form.fields.length === 0) {
-        this.activeTab = 'config';
-        this.generatedData = [];
-      }
-    },
-    generateData() {
-      if (this.form.fields === null || this.form.fields.length <= 0) {
-        this.$notifyUtil.warning('请先添加字段');
-        return;
-      }
-
-      this.generatedData = [];
-      this.currentPage = 1;
-      for (let i = 0; i < this.form.count; i++) {
-        const row = {};
-        this.form.fields.forEach(field => {
-          const category = this.fieldTypes.find(category =>
-              category.fields.some(f => f.label === field.type)
-          );
-          const fieldType = category.fields.find(f => f.label === field.type);
-          row[field.id] = fieldType ? fieldType.generate(field.configs, i) : '';
-        });
-        this.generatedData.push(row);
-      }
-      // 生成数据后切换到表格显示
-      this.activeTab = 'table';
-    },
-    // 拷贝为制表符分隔值
-    copyAsTVS() {
-      const csvRows = [];
-      const currentFields = this.getCurrentFieldsOrder();
-
-      // 根据设置决定是否包含表头
-      if (this.includeHeaderInCopy) {
-        const headers = currentFields.map(field => field.name).join('\t');
-        csvRows.push(headers);
-      }
-
-      this.generatedData.forEach(row => {
-        const values = currentFields.map(field => row[field.id]).join('\t');
-        csvRows.push(values);
-      });
-
-      const csvString = csvRows.join('\n');
-      this.copyToClipboard(csvString);
-    },
-    // 拷贝为SQL
-    copyAsSQL() {
-      const sqlStatements = this.generatedData.map(row => {
-        const tableName = 'tableName';
-        const currentFields = this.getCurrentFieldsOrder();
-        const columns = currentFields.map(field => field.name).join(', ');
-        const values = currentFields.map(field => `'${row[field.id]}'`).join(', ');
-        return `INSERT INTO ${tableName} (${columns})
-                VALUES (${values});`;
-      }).join('\n');
-      this.copyToClipboard(sqlStatements);
-    },
-    // 拷贝为JSON
-    copyAsJSON() {
-      const jsonData = this.generatedData.map(row => {
-        const jsonObject = {};
-        const currentFields = this.getCurrentFieldsOrder();
-        currentFields.forEach(field => {
-          jsonObject[field.name] = row[field.id];
-        });
-        return jsonObject;
-      });
-      this.copyToClipboard(JSON.stringify(jsonData, null, 2));
-    },
-    copyToClipboard(text) {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      this.$notifyUtil.success('内容已复制到剪贴板');
-    },
-    clearData() {
-      this.form.fields = [];
-      this.generatedData = [];
-      this.currentPage = 1;
-      this.activeTab = 'config';
-    },
-
-    // 切换复制时是否包含表头
-    toggleIncludeHeader() {
-      this.includeHeaderInCopy = !this.includeHeaderInCopy;
-    },
-
-    // 处理列拖拽结束事件
-    handleColumnDragEnd() {
-      // 使用getTableColumn方法获取最新的列顺序
-      if (this.$refs.dataTable) {
-        const tableColumnInfo = this.$refs.dataTable.getTableColumn();
-        const columnOrder = tableColumnInfo.collectColumn.map(col => col.property);
-
-        // 根据表格列的顺序重新排列字段配置
-        const reorderedFields = [];
-        columnOrder.forEach(columnProperty => {
-          const field = this.form.fields.find(f => f.id === columnProperty);
-          if (field) {
-            reorderedFields.push(field);
-          }
-        });
-
-        // 更新字段配置顺序
-        this.form.fields = reorderedFields;
-      }
-    },
-
-    // 获取当前应该使用的字段顺序
-    getCurrentFieldsOrder() {
-      return this.form.fields;
-    },
-
-    handleSizeChange(val) {
-      this.pageSize = val;
-      this.currentPage = 1;
-    },
-    handleCurrentChange(val) {
-      this.currentPage = val;
-    },
-
+  {
+    type: '位置',
+    fields: [
+      { label: '省份', configs: {} },
+      { label: '城市', configs: {} },
+      { label: '区县', configs: {} },
+      { label: '地址', configs: {} }
+    ]
+  },
+  {
+    type: '图像',
+    fields: [
+      { label: '图片', configs: { displayMode: 'URL' } },
+      { label: '头像', configs: { displayMode: 'URL' } }
+    ]
+  },
+  {
+    type: '网络',
+    fields: [
+      { label: 'ip地址', configs: {} },
+      { label: '网址', configs: {} },
+      { label: '密码', configs: {} },
+      { label: 'emoji', configs: {} }
+    ]
+  },
+  {
+    type: '商业',
+    fields: [
+      { label: '公司名称', configs: {} },
+      { label: '商品品类', configs: {} },
+      { label: '商品名', configs: {} },
+      { label: '商品标题', configs: {} },
+      { label: '货币代码', configs: {} },
+      { label: '信用代码', configs: {} }
+    ]
   }
-};
-</script>
+]
 
-<style>
-.gtdTop {
-  position: relative;
-  overflow: hidden;
-  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  max-height: 80px;
+const pagedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return generatedData.value.slice(start, end)
+})
+
+function addField(field) {
+  const newField = {
+    id: `field_${Date.now()}`,
+    name: field.label,
+    type: field.label,
+    configs: field.configs ? JSON.parse(JSON.stringify(field.configs)) : undefined
+  }
+  form.fields.push(newField)
+  if (activeTab.value === 'table') activeTab.value = 'config'
 }
 
-.openBtn {
-  position: absolute;
-  right: 0;
-  top: 0;
+function removeField(id) {
+  const idx = form.fields.findIndex(f => f.id === id)
+  if (idx !== -1) form.fields.splice(idx, 1)
+  if (form.fields.length === 0) {
+    activeTab.value = 'config'
+    generatedData.value = []
+  }
+}
+
+function generateDataForField(field, index) {
+  const $randomData = proxy?.$randomData
+  const $dateTimeUtil = proxy?.$dateTimeUtil
+
+  switch (field.type) {
+    case '编码': return $randomData?.getCode(field.configs.prefix, field.configs.initVal, field.configs.step, field.configs.dateFormat, field.configs.delimiter, field.configs.sequenceLength, index)
+    case '整数': return $randomData?.getNumber(field.configs.min, field.configs.max)
+    case '小数': return $randomData?.getDecimal(field.configs.min, field.configs.max, field.configs.fractionDigits)
+    case '日期': return $dateTimeUtil?.randomDate(field.configs.startDate, field.configs.endDate, field.configs.dateType === 'date' ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm:ss')
+    case '时间戳': return $dateTimeUtil?.randomTimestamp(field.configs.startDate, field.configs.endDate)
+    case '枚举': return $randomData?.getEnumValue(field.configs.enumValues)
+    case '文字': return $randomData?.getChineseParagrap(field.configs.minLength, field.configs.maxLength)
+    case '随机字符': return $randomData?.getStrByArrConfig(field.configs.length, field.configs.strSource, field.configs.punctuationChars)
+    case 'UUID': return $randomData?.getUUID(field.configs.uppercase, field.configs.delimiter)
+    case '分布式ID': return $randomData?.getDistributedId()
+    case '姓名': return $randomData?.getPersonName()
+    case '身份证': return $randomData?.getIdCard()
+    case '手机号': return $randomData?.getChineseMobile()
+    case '邮箱': return $randomData?.getEmail()
+    case '省份': return $randomData?.getProvince()
+    case '城市': return $randomData?.getCity()
+    case '区县': return $randomData?.getArea()
+    case '地址': return $randomData?.getAddress()
+    case '图片': return $randomData?.getImageUrl()
+    case '头像': return $randomData?.getAvatarUrl()
+    case 'ip地址': return faker.internet.ipv4()
+    case '网址': return faker.internet.url()
+    case '密码': return faker.internet.password()
+    case 'emoji': return faker.internet.emoji()
+    case '公司名称': return faker.company.name()
+    case '商品品类': return faker.commerce.department()
+    case '商品名': return faker.commerce.productName()
+    case '商品标题': return faker.commerce.productDescription()
+    case '货币代码': return faker.finance.currencyCode()
+    case '信用代码': return $randomData?.getCreditCode()
+    default: return ''
+  }
+}
+
+function generateData() {
+  if (!form.fields.length) {
+    NotifyUtil.warning('请先添加字段')
+    return
+  }
+  generatedData.value = []
+  currentPage.value = 1
+  for (let i = 0; i < form.count; i++) {
+    const row = {}
+    form.fields.forEach(field => {
+      row[field.id] = generateDataForField(field, i)
+    })
+    generatedData.value.push(row)
+  }
+  activeTab.value = 'table'
+}
+
+function copyAsTVS() {
+  const csvRows = []
+  const currentFields = form.fields
+  if (includeHeaderInCopy.value) {
+    csvRows.push(currentFields.map(field => field.name).join('\t'))
+  }
+  generatedData.value.forEach(row => {
+    csvRows.push(currentFields.map(field => row[field.id]).join('\t'))
+  })
+  copyToClipboard(csvRows.join('\n'))
+}
+
+function toSqlString(value) {
+  return `'${String(value).replace(/'/g, "''")}'`
+}
+
+function copyAsSQL() {
+  const tableName = 'tableName'
+  const currentFields = form.fields
+  const cols = currentFields.map(field => field.name).join(', ')
+  const batchSize = 500
+  const sqlStatements = []
+  for (let i = 0; i < generatedData.value.length; i += batchSize) {
+    const batch = generatedData.value.slice(i, i + batchSize)
+    const valuesList = batch.map(row => {
+      const values = currentFields.map(field => toSqlString(row[field.id])).join(', ')
+      return `(${values})`
+    })
+    sqlStatements.push(`INSERT INTO ${tableName} (${cols}) VALUES\n${valuesList.join(',\n')};`)
+  }
+  copyToClipboard(sqlStatements.join('\n'))
+}
+
+function copyAsJSON() {
+  const jsonData = generatedData.value.map(row => {
+    const jsonObject = {}
+    form.fields.forEach(field => { jsonObject[field.name] = row[field.id] })
+    return jsonObject
+  })
+  copyToClipboard(JSON.stringify(jsonData, null, 2))
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    NotifyUtil.success('内容已复制到剪贴板')
+  }).catch(() => {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    NotifyUtil.success('内容已复制到剪贴板')
+  })
+}
+
+function handleColumnDragend() {
+  const $table = dataTableRef.value
+  if (!$table) return
+  const { collectColumn } = $table.getTableColumn()
+  const fieldIds = collectColumn
+    .filter(col => col.field)
+    .map(col => col.field)
+  const reordered = []
+  fieldIds.forEach(id => {
+    const field = form.fields.find(f => f.id === id)
+    if (field) reordered.push(field)
+  })
+  if (reordered.length === form.fields.length) {
+    form.fields.splice(0, form.fields.length, ...reordered)
+  }
+}
+
+function clearData() {
+  form.fields = []
+  generatedData.value = []
+  currentPage.value = 1
+  activeTab.value = 'config'
+}
+
+function toggleIncludeHeader() {
+  includeHeaderInCopy.value = !includeHeaderInCopy.value
+}
+
+function handleSizeChange(val) {
+  pageSize.value = val
+  currentPage.value = 1
+}
+</script>
+
+<style scoped>
+.gtdTop {
+  position: relative;
 }
 
 .gtdMiddle {
   flex: 0 0 auto;
 }
 
-.field-type-button {
-  color: rgb(144, 147, 153) !important;
-  background: rgb(244, 244, 245) !important;
-  border-color: rgb(211, 212, 214) !important;
-}
-
 .gtdBottom {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
-.vxe-table--header th.vxe-header--column .vxe-cell .vxe-cell--wrapper {
-  display: flex;
-}
-
-/* 字段卡片容器样式 */
 .field-cards-container {
   width: 100%;
   height: 100%;
   overflow-y: auto;
 }
 
-/* field-list 滚动条样式 */
-.field-cards-container::-webkit-scrollbar {
-  width: 8px; /* 纵向滚动条宽度 */
-  height: 8px; /* 横向滚动条高度 */
-}
-
-.field-cards-container::-webkit-scrollbar-track {
-  border-radius: 4px;
-}
-
-.field-cards-container::-webkit-scrollbar-thumb {
-  background-color: #888;
-  border-radius: 4px;
-}
-
-.field-cards-container::-webkit-scrollbar-thumb:hover {
-  background-color: #555;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #909399;
-}
-
-.empty-state i {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 14px;
-}
-
 .field-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
   gap: 15px;
-  min-height: 100px; /* 确保有足够空间 */
+  min-height: 100px;
   width: 100%;
 }
 
 .field-card {
-  margin-bottom: 0;
   min-width: 0;
   word-wrap: break-word;
-  position: relative;
   transition: all 0.3s ease;
-  border-radius: 8px !important;
-}
-
-.field-card .el-card__header {
-  padding: 0 !important;
-}
-
-.field-card .el-card__body {
-  padding: 0 !important;
-}
-
-.field-card-header {
-  padding: 10px 10px;
 }
 
 .field-header {
@@ -790,7 +534,6 @@ export default {
   flex-shrink: 0;
 }
 
-
 .field-index {
   font-weight: 600;
   color: #606266;
@@ -798,8 +541,11 @@ export default {
   min-width: 18px;
 }
 
+.field-name-input {
+  flex: 1;
+}
+
 .field-card-body {
-  padding: 10px 15px;
   min-height: 0;
   overflow: visible;
 }
@@ -824,7 +570,7 @@ export default {
 }
 
 .config-item label {
-  font-size: 11px;
+  font-size: 12px;
   color: #606266;
   font-weight: 500;
 }
@@ -833,27 +579,10 @@ export default {
   grid-column: 1 / -1;
 }
 
-.config-item label {
-  font-size: 12px;
-  color: #606266;
-  font-weight: 500;
-}
-
-/* Tab标签样式 */
 .content-tabs {
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.content-tabs .el-tabs__content {
-  flex: 1;
-  overflow: hidden;
-}
-
-.content-tabs .el-tab-pane {
-  height: 100%;
-  overflow: hidden;
 }
 
 .table-wrapper {
@@ -861,6 +590,7 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  gap: 10px;
 }
 
 .table-container {
@@ -870,32 +600,27 @@ export default {
   overflow: hidden;
 }
 
-.table-wrapper .el-pagination {
-  flex-shrink: 0;
-  text-align: right;
-  height: 26px;
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #909399;
 }
 
-/* 复制按钮样式 */
-.copy-with-header-btn {
-  height: 28px;
+.empty-state p {
+  margin: 16px 0 0;
+  font-size: 14px;
 }
 
 .copy-header-icon {
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   transform-origin: center;
-  color: #ffffff;
   margin-left: 3px;
 }
 
 .copy-header-icon:hover {
-  transform: scale(2);
+  transform: scale(1.5);
 }
-
-/* 深色模式样式 */
-body.dark .copy-header-icon {
-  color: #ffffff !important;
-  margin-left: 3px !important;
-}
-
 </style>

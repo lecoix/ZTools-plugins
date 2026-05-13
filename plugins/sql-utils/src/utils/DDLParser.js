@@ -1,7 +1,5 @@
 import {Parser} from 'sql-ddl-to-json-schema';
 
-const parser = new Parser('mysql');
-
 // 默认类型映射
 const DEFAULT_TYPE_MAPPING = {
   // 数值类型
@@ -48,8 +46,8 @@ const DEFAULT_TYPE_MAPPING = {
  * 解析DDL
  * @param ddl
  */
-export function parseDDL(ddl) {
-  // ddl必须以因为分号：; 结尾
+export function parseDDL(ddl, options = {}) {
+  const {silent = false} = options;
   ddl = ddl.trim();
   if (ddl.length > 0) {
     const lastChar = ddl[ddl.length - 1];
@@ -60,13 +58,18 @@ export function parseDDL(ddl) {
 
   let result = null;
   try {
+    const parser = new Parser('mysql');
     parser.feed(ddl);
     const parsedJsonFormat = parser.results;
     result = parser.toCompactJson(parsedJsonFormat);
   } catch (error) {
+    if (!silent) {
+      console.error('[DDLParser] parse error:', error);
+    }
     return null;
   }
-  return convertJson(result);
+  const finalResult = convertJson(result);
+  return finalResult;
 }
 
 // 转换函数
@@ -87,11 +90,15 @@ function convertJson(data) {
   const tableComment = item.options ? item.options.comment || '' : '';
 
   // 映射 columns 数组为新的 fields 数组
-  const fields = item.columns.map(column => ({
+  const columns = Array.isArray(item.columns) ? item.columns : [];
+  const primaryKeyColumns = getPrimaryKeyColumns(item);
+  const typeMapping = getTypeMapping();
+  const fields = columns.map(column => ({
     fieldName: column.name,
-    fieldType: column.type.datatype,
-    javaType: getJavaType(column),
-    comment: String(column.options.comment || '')
+    fieldType: column.type?.datatype || '',
+    javaType: getJavaType(column, typeMapping),
+    comment: String(column.options?.comment || ''),
+    isPrimaryKey: primaryKeyColumns.has(column.name)
   }));
 
   // 返回转换后的对象
@@ -106,11 +113,12 @@ function convertJson(data) {
 /**
  * 获取Java类型
  * @param column
+ * @param typeMapping
  * @returns {string|*|string}
  */
-const getJavaType = (column) => {
-  const type = column.type.datatype.toLowerCase();
-  const length = column.options.length;
+const getJavaType = (column, typeMapping) => {
+  const type = (column.type?.datatype || '').toLowerCase();
+  const length = column.options?.length;
 
   if (type === 'bit') {
     return length === 1 ? 'Boolean' : 'byte[]';
@@ -122,10 +130,14 @@ const getJavaType = (column) => {
     if (type === 'int') return 'Long';
   }
 
+  return typeMapping[type] || 'Object'; // 默认返回Object类型
+};
+
+function getTypeMapping() {
   // 尝试从localStorage获取自定义类型映射
   let typeMapping = DEFAULT_TYPE_MAPPING;
   try {
-    const savedMappings = localStorage.getItem('typeMappings');
+    const savedMappings = typeof localStorage !== 'undefined' ? localStorage.getItem('typeMappings') : null;
     if (savedMappings) {
       const customMappings = JSON.parse(savedMappings);
       // 将自定义映射转换为对象形式
@@ -146,9 +158,37 @@ const getJavaType = (column) => {
     console.error('加载类型映射失败，使用默认映射:', e);
     typeMapping = DEFAULT_TYPE_MAPPING;
   }
-  
-  return typeMapping[type] || 'Object'; // 默认返回Object类型
-};
+
+  return typeMapping;
+}
+
+function getPrimaryKeyColumns(item) {
+  const primaryKeyColumns = new Set();
+
+  if (Array.isArray(item.primaryKey)) {
+    item.primaryKey.forEach(column => primaryKeyColumns.add(getColumnName(column)));
+  } else if (Array.isArray(item.primaryKey?.columns)) {
+    item.primaryKey.columns.forEach(column => primaryKeyColumns.add(getColumnName(column)));
+  }
+
+  if (Array.isArray(item.constraints)) {
+    item.constraints
+      .filter(constraint => String(constraint.type || '').toLowerCase() === 'primary key')
+      .forEach(constraint => {
+        const columns = constraint.columns || constraint.keys || constraint.value || [];
+        if (Array.isArray(columns)) {
+          columns.forEach(column => primaryKeyColumns.add(getColumnName(column)));
+        }
+      });
+  }
+
+  return primaryKeyColumns;
+}
+
+function getColumnName(column) {
+  if (typeof column === 'string') return column;
+  return column?.name || column?.column || column?.value || '';
+}
 
 /**
  * 生成导包语句

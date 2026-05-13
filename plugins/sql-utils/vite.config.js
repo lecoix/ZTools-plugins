@@ -1,9 +1,16 @@
 import { defineConfig } from 'vite'
-import vue2 from '@vitejs/plugin-vue2'
+import vue from '@vitejs/plugin-vue'
+import Components from 'unplugin-vue-components/vite'
+import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [vue2()],
+  plugins: [
+    vue(),
+    Components({
+      resolvers: [NaiveUiResolver()]
+    })
+  ],
   base: './',
   server: {
     port: 1688
@@ -19,5 +26,17 @@ export default defineConfig({
         silenceDeprecations: ['legacy-js-api']
       }
     }
+  },
+  optimizeDeps: {
+    include: [
+      'naive-ui',
+      'vue-codemirror',
+      '@codemirror/lang-java',
+      '@codemirror/lang-javascript',
+      '@codemirror/lang-sql',
+      '@codemirror/lang-vue',
+      '@codemirror/theme-one-dark',
+      'vxe-table'
+    ]
   }
 })

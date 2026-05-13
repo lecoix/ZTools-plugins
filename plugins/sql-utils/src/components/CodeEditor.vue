@@ -1,277 +1,177 @@
 <template>
   <div
     class="code-editor-box"
-    @mouseenter="showCopyIcon = true"
-    @mouseleave="handleEditorMouseLeave"
-    :data-theme="$store.state.codeEditorThemeMode"
+    :class="{ 'is-copied': isCopied }"
+    :style="editorStyle"
+    :data-theme="store.codeEditorThemeMode"
   >
     <codemirror
-        ref="codemirrorEditor"
-        class="code-editor"
-        v-model="localValue"
-        :options="codemirrorOptions"
-        @input="handleInput"
+      ref="cmRef"
+      class="code-editor"
+      v-model="localValue"
+      :style="{ height: '100%' }"
+      :autofocus="autofocus"
+      :indent-with-tab="true"
+      :tab-size="2"
+      :extensions="extensions"
+      @change="handleInput"
     />
 
-    <!-- 提示文字 -->
-    <transition name="fade">
-      <div v-if="!localValue && placeholder" class="codemirror-placeholder">
-        {{ placeholder }}
-      </div>
-    </transition>
-
-    <!-- 操作按钮组 -->
-    <div class="action-buttons" v-show="localValue && showCopyIcon">
-      <!-- 清空按钮 -->
-      <div
-        class="clear-container"
+    <div v-if="localValue" class="editor-actions" aria-label="编辑器操作">
+      <button
+        class="editor-action editor-action--ghost"
+        type="button"
+        title="清空内容"
+        aria-label="清空内容"
         @click="clear"
-        @mouseleave="handleClearContainerMouseLeave"
       >
-        <i class="el-icon-delete"></i>
-        <span class="clear-text">清空</span>
-      </div>
+        <n-icon size="15"><Icon icon="icon-park-outline:delete" /></n-icon>
+      </button>
 
-      <!-- 复制按钮 -->
-      <div
-        class="copy-container"
+      <button
+        class="editor-action editor-action--primary"
+        type="button"
+        :title="isCopied ? '已复制' : '复制内容'"
+        :aria-label="isCopied ? '已复制' : '复制内容'"
         @click="copyToClipboard"
-        @mouseleave="handleCopyContainerMouseLeave"
       >
-        <i :class="copyIconClass"></i>
-        <span class="copy-text">{{ copyText }}</span>
-      </div>
+        <n-icon size="15">
+          <Icon :icon="isCopied ? 'icon-park-outline:check-one' : 'icon-park-outline:copy'" />
+        </n-icon>
+      </button>
     </div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'CodeEditor',
-  props: {
-    value: {
-      type: String,
-      default: ''
-    },
-    mode: {
-      type: String,
-      default: 'text'
-    },
-    autofocus: {
-      type: Boolean,
-      default: false
-    },
-    placeholder: {
-      type: String,
-      default: ''
-    },
-    readonly: {
-      type: Boolean,
-      default: false
-    }
-  },
+<script setup>
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { Codemirror } from 'vue-codemirror'
+import { javascript } from '@codemirror/lang-javascript'
+import { sql } from '@codemirror/lang-sql'
+import { java } from '@codemirror/lang-java'
+import { vue as vueLang } from '@codemirror/lang-vue'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { placeholder as editorPlaceholder } from '@codemirror/view'
+import { Icon } from '@iconify/vue'
+import { NIcon, useThemeVars } from 'naive-ui'
+import { useAppStore } from '@/store'
 
-  data() {
-    return {
-      localValue: this.value || '',
-      codemirrorOptions: {
-        theme: this.$store.state.codeEditorThemeMode,
-        mode: this.mode,
-        autofocus: this.autofocus,
-        readOnly: this.readonly,
-        lineNumbers: true,
-        styleActiveLine: true,
-        matchBrackets: true,
-        autoCloseBrackets: true,
-        tabSize: 2,
-        indentUnit: 2,
-        smartIndent: true,
-        lineWrapping: true
-      },
-      showCopyIcon: false,
-      copyText: '复制',
-      copyIconClass: 'el-icon-copy-document',
-      isCopied: false,
-      copyTimeout: null
-    }
-  },
+const props = defineProps({
+  modelValue: { type: String, default: '' },
+  mode: { type: String, default: 'text' },
+  autofocus: { type: Boolean, default: false },
+  placeholder: { type: String, default: '' },
+  readonly: { type: Boolean, default: false }
+})
 
-  watch: {
-    '$store.state.codeEditorThemeMode': {
-      handler(newTheme) {
-        this.codemirrorOptions.theme = newTheme;
-        // 更新CodeMirror实例的主题
-        if (this.$refs.codemirrorEditor && this.$refs.codemirrorEditor.codemirror) {
-          this.$refs.codemirrorEditor.codemirror.setOption('theme', newTheme);
-        }
-      },
-      immediate: true
-    },
-    value: {
-      handler(newVal) {
-        this.localValue = newVal || '';
-      },
-      immediate: true
-    },
-    readonly: {
-      handler(newVal) {
-        this.codemirrorOptions.readOnly = newVal;
-        // 更新CodeMirror实例的只读状态
-        if (this.$refs.codemirrorEditor && this.$refs.codemirrorEditor.codemirror) {
-          this.$refs.codemirrorEditor.codemirror.setOption('readOnly', newVal);
-        }
-      },
-      immediate: true
-    },
-    mode: {
-      handler(newMode) {
-        this.codemirrorOptions.mode = newMode;
-        // 更新CodeMirror实例的模式
-        if (this.$refs.codemirrorEditor && this.$refs.codemirrorEditor.codemirror) {
-          this.$refs.codemirrorEditor.codemirror.setOption('mode', newMode);
-        }
-      },
-      immediate: true
-    }
-  },
+const emit = defineEmits(['update:modelValue', 'change'])
 
-  mounted() {
-    // 确保CodeMirror实例正确初始化
-    this.$nextTick(() => {
-      if (this.autofocus && this.$refs.codemirrorEditor && this.$refs.codemirrorEditor.codemirror) {
-        this.$refs.codemirrorEditor.codemirror.focus();
-      }
-    });
-  },
+const store = useAppStore()
+const themeVars = useThemeVars()
 
-  beforeDestroy() {
-    // 清理定时器
-    if (this.copyTimeout) {
-      clearTimeout(this.copyTimeout);
-    }
-  },
+const localValue = ref(props.modelValue || '')
+const cmRef = ref(null)
+const isCopied = ref(false)
+const copyTimeout = ref(null)
 
-  methods: {
-    /**
-     * 处理输入事件
-     */
-    handleInput(value) {
-      this.localValue = value;
-      // 发出标准input事件以支持v-model
-      this.$emit('input', value);
-      // 发出change事件
-      this.$emit('change', value);
-    },
+const editorStyle = computed(() => ({
+  '--editor-primary': themeVars.value.primaryColor,
+  '--editor-primary-hover': themeVars.value.primaryColorHover,
+  '--editor-primary-pressed': themeVars.value.primaryColorPressed,
+  '--editor-idle-border': store.isDarkTheme ? '#303946' : themeVars.value.borderColor,
+  '--editor-focus-border': store.isDarkTheme ? '#70c0e8' : '#2080f0',
+  '--editor-focus-shadow': store.isDarkTheme ? 'rgba(112, 192, 232, 0.18)' : 'rgba(32, 128, 240, 0.16)',
+  '--editor-success': themeVars.value.successColor,
+  '--editor-error': themeVars.value.errorColor,
+  '--editor-border': themeVars.value.borderColor,
+  '--editor-divider': themeVars.value.dividerColor,
+  '--editor-card': themeVars.value.cardColor,
+  '--editor-popover': themeVars.value.popoverColor,
+  '--editor-body': themeVars.value.bodyColor,
+  '--editor-text': themeVars.value.textColor2,
+  '--editor-muted': themeVars.value.textColor3,
+  '--editor-placeholder': themeVars.value.placeholderColor
+}))
 
-    /**
-     * 复制内容到剪贴板
-     */
-    copyToClipboard() {
-      if (!this.localValue) return;
+const langExtensions = computed(() => {
+  switch (props.mode) {
+    case 'sql': return [sql()]
+    case 'javascript': return [javascript()]
+    case 'text/x-java':
+    case 'java': return [java()]
+    case 'vue': return [vueLang()]
+    case 'handlebars': return [javascript()]
+    default: return []
+  }
+})
 
-      navigator.clipboard.writeText(this.localValue).then(() => {
-        this.copyText = '复制成功';
-        this.copyIconClass = 'el-icon-success';
-        this.isCopied = true;
+const extensions = computed(() => {
+  const exts = [...langExtensions.value]
+  if (props.placeholder) {
+    exts.push(editorPlaceholder(props.placeholder))
+  }
+  if (store.codeEditorThemeMode === 'dracula' || store.isDarkTheme) {
+    exts.push(oneDark)
+  }
+  return exts
+})
 
-        // 获取焦点
-        if (this.$refs.codemirrorEditor && this.$refs.codemirrorEditor.codemirror) {
-          this.$refs.codemirrorEditor.codemirror.focus();
-        }
+watch(() => props.modelValue, (newVal) => {
+  localValue.value = newVal || ''
+})
 
-        // 1.5秒后自动恢复原始状态
-        this.copyTimeout = setTimeout(() => {
-          this.resetCopyState();
-        }, 1500);
-      }).catch(err => {
-        console.error('复制失败:', err);
-        this.$message.error('复制失败');
-      });
-    },
+function handleInput(value) {
+  localValue.value = value
+  emit('update:modelValue', value)
+  emit('change', value)
+}
 
-    /**
-     * 处理鼠标离开编辑器区域
-     */
-    handleEditorMouseLeave() {
-      // 延迟隐藏，避免鼠标从编辑器移动到复制按钮时立即消失
-      setTimeout(() => {
-        // 只有在未复制状态下才隐藏
-        if (!this.isCopied) {
-          this.showCopyIcon = false;
-        }
-      }, 100);
-    },
+function copyToClipboard() {
+  if (!localValue.value) return
+  navigator.clipboard.writeText(localValue.value).then(() => {
+    isCopied.value = true
+    focus()
+    if (copyTimeout.value) clearTimeout(copyTimeout.value)
+    copyTimeout.value = setTimeout(() => resetCopyState(), 1500)
+  }).catch(err => {
+    console.error('复制失败:', err)
+  })
+}
 
-    /**
-     * 处理鼠标离开复制容器
-     */
-    handleCopyContainerMouseLeave() {
-      // 不再需要在此处处理，因为已改为定时恢复
-    },
+function resetCopyState() {
+  if (copyTimeout.value) {
+    clearTimeout(copyTimeout.value)
+    copyTimeout.value = null
+  }
+  isCopied.value = false
+}
 
-    /**
-     * 处理鼠标离开清空容器
-     */
-    handleClearContainerMouseLeave() {
-      // 不再需要在此处处理
-    },
-
-    /**
-     * 重置复制状态
-     */
-    resetCopyState() {
-      // 清理之前的定时器
-      if (this.copyTimeout) {
-        clearTimeout(this.copyTimeout);
-        this.copyTimeout = null;
-      }
-
-      // 恢复原始状态
-      this.copyText = '复制';
-      this.copyIconClass = 'el-icon-copy-document';
-      this.isCopied = false;
-    },
-
-    /**
-     * 获取CodeMirror实例
-     * @returns {Object|null} CodeMirror实例
-     */
-    getCodeMirrorInstance() {
-      return this.$refs.codemirrorEditor ? this.$refs.codemirrorEditor.codemirror : null;
-    },
-
-    /**
-     * 设置焦点
-     */
-    focus() {
-      const cm = this.getCodeMirrorInstance();
-      if (cm) {
-        cm.focus();
-      }
-    },
-
-    /**
-     * 全选内容
-     */
-    selectAll() {
-      const cm = this.getCodeMirrorInstance();
-      if (cm) {
-        cm.execCommand('selectAll');
-        cm.focus();
-      }
-    },
-
-    /**
-     * 清空内容
-     */
-    clear() {
-      this.localValue = '';
-      this.$emit('input', '');
-      this.$emit('change', '');
-      this.focus();
-    }
+function focus() {
+  if (cmRef.value?.view) {
+    cmRef.value.view.focus()
   }
 }
+
+function selectAll() {
+  const view = cmRef.value?.view
+  if (view) {
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } })
+    view.focus()
+  }
+}
+
+function clear() {
+  localValue.value = ''
+  emit('update:modelValue', '')
+  emit('change', '')
+  focus()
+}
+
+onBeforeUnmount(() => {
+  if (copyTimeout.value) clearTimeout(copyTimeout.value)
+})
+
+defineExpose({ focus, selectAll, clear })
 </script>
 
 <style scoped>
@@ -279,96 +179,230 @@ export default {
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;
+  border: 1px solid var(--editor-idle-border, var(--editor-border, rgba(31, 41, 55, 0.12)));
+  border-radius: 8px;
+  background: var(--editor-card, #fff);
+  box-shadow: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.code-editor-box:hover,
+.code-editor-box:focus-within {
+  border-color: var(--editor-focus-border, var(--editor-primary, #2080f0));
+  box-shadow: 0 0 0 3px var(--editor-focus-shadow, rgba(32, 128, 240, 0.16));
+}
+
+@supports (color: color-mix(in srgb, #000 50%, #fff)) {
+  .code-editor-box:hover,
+  .code-editor-box:focus-within {
+    border-color: color-mix(in srgb, var(--editor-primary, #2080f0) 42%, var(--editor-border, #efeff5));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--editor-primary, #2080f0) 12%, transparent);
+  }
 }
 
 .code-editor {
   height: 100%;
 }
 
-.codemirror-placeholder {
+.editor-actions {
   position: absolute;
-  top: 2px;
-  left: 33px;
-  color: #999;
-  pointer-events: none;
-  font-size: 14px;
-  z-index: 1;
-  font-style: italic;
-  transition: opacity 0.3s ease;
-  opacity: 0.7;
-}
-
-/* 深色主题下的提示文字样式 */
-.code-editor-box[data-theme="dracula"] .codemirror-placeholder {
-  color: #666;
-}
-
-/* 浅色主题下的提示文字样式 */
-.code-editor-box[data-theme="base16-light"] .codemirror-placeholder {
-  color: #aaa;
-}
-
-/* fade transition */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s;
-}
-
-.fade-enter, .fade-leave-to {
-  opacity: 0;
-}
-
-.action-buttons {
-  position: absolute;
-  top: 6px;
-  right: 12px;
-  z-index: 2;
-  display: flex;
-  gap: 5px;
-}
-
-.copy-container, .clear-container {
-  cursor: pointer;
-  background-color: #E5E6EB;
-  border-radius: 4px;
-  padding: 4px 8px;
+  top: 8px;
+  right: 10px;
   display: flex;
   align-items: center;
-  font-size: 12px;
-  transition: all 0.3s ease;
+  gap: 6px;
+  z-index: 12;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--editor-divider, #efeff5) 84%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--editor-popover, #fff) 86%, transparent);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--editor-text, #333) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--editor-card, #fff) 72%, #fff 28%);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
 }
 
-/* 深色主题样式 */
-.code-editor-box[data-theme="dracula"] .copy-container,
-.code-editor-box[data-theme="dracula"] .clear-container {
-  background-color: #424242;
+.code-editor-box:hover .editor-actions,
+.code-editor-box:focus-within .editor-actions,
+.code-editor-box.is-copied .editor-actions {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.editor-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--editor-muted, #606266);
+  background: transparent;
+  transition:
+    color 0.16s ease,
+    background 0.16s ease,
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.editor-action:hover {
+  transform: translateY(-1px);
+}
+
+.editor-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--editor-primary, #18a058) 52%, transparent);
+  outline-offset: 2px;
+}
+
+.editor-action--ghost:hover {
+  color: var(--editor-error, #d03050);
+  background: color-mix(in srgb, var(--editor-error, #d03050) 10%, transparent);
+}
+
+.editor-action--primary {
+  color: #fff;
+  background: linear-gradient(180deg, var(--editor-primary-hover, #36ad6a), var(--editor-primary, #18a058));
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--editor-primary, #18a058) 32%, transparent);
+}
+
+.editor-action--primary:hover {
+  color: #fff;
+  background: linear-gradient(180deg, var(--editor-primary, #18a058), var(--editor-primary-pressed, #0c7a43));
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--editor-primary, #18a058) 38%, transparent);
+}
+
+.is-copied .editor-action--primary {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--editor-success, #18a058) 86%, #fff),
+    var(--editor-success, #18a058)
+  );
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--editor-success, #18a058) 34%, transparent);
+}
+
+:deep(.v-codemirror) {
+  height: 100%;
+}
+
+:deep(.cm-editor) {
+  height: 100%;
+  font-size: 13px;
+  background: transparent;
+}
+
+:deep(.cm-gutters) {
+  border-right: 1px solid color-mix(in srgb, var(--editor-divider, #efeff5) 82%, transparent);
+  background: color-mix(in srgb, var(--editor-body, #f5f5f5) 72%, var(--editor-card, #fff));
+  color: var(--editor-placeholder, #999);
+}
+
+:deep(.cm-activeLine),
+:deep(.cm-activeLineGutter) {
+  background-color: color-mix(in srgb, var(--editor-primary, #18a058) 8%, transparent);
+}
+
+:deep(.cm-editor.cm-focused),
+:deep(.cm-focused) {
+  outline: none !important;
+}
+
+:deep(.cm-scroller) {
+  overflow: auto;
+  font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  line-height: 1.52;
+}
+
+:deep(.cm-content) {
+  padding: 10px 0 14px;
+}
+
+:deep(.cm-placeholder) {
+  color: var(--editor-placeholder, #999);
+  font-style: italic;
+  opacity: 0.72;
+}
+
+:deep(.cm-line) {
+  padding: 0 14px;
+}
+
+.code-editor-box[data-theme='dracula'],
+body.dark .code-editor-box {
+  border-color: var(--editor-idle-border, #303946);
+  background: var(--editor-card, #18181c);
+  box-shadow: none;
+}
+
+@supports (color: color-mix(in srgb, #000 50%, #fff)) {
+  .code-editor-box[data-theme='dracula'],
+  body.dark .code-editor-box {
+    border-color: color-mix(in srgb, var(--editor-divider, #303946) 88%, transparent);
+  }
+}
+
+.code-editor-box[data-theme='dracula']:hover,
+.code-editor-box[data-theme='dracula']:focus-within,
+body.dark .code-editor-box:hover,
+body.dark .code-editor-box:focus-within {
+  border-color: var(--editor-focus-border, #70c0e8);
+  box-shadow: 0 0 0 3px var(--editor-focus-shadow, rgba(112, 192, 232, 0.18));
+}
+
+@supports (color: color-mix(in srgb, #000 50%, #fff)) {
+  .code-editor-box[data-theme='dracula']:hover,
+  .code-editor-box[data-theme='dracula']:focus-within,
+  body.dark .code-editor-box:hover,
+  body.dark .code-editor-box:focus-within {
+    border-color: color-mix(in srgb, var(--editor-primary, #70c0e8) 44%, var(--editor-divider, #ffffff17));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--editor-primary, #70c0e8) 14%, transparent);
+  }
+}
+
+.code-editor-box[data-theme='dracula'] .editor-actions,
+body.dark .code-editor-box .editor-actions {
+  border-color: color-mix(in srgb, var(--editor-divider, #ffffff17) 86%, transparent);
+  background: color-mix(in srgb, var(--editor-popover, #242428) 78%, transparent);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.code-editor-box[data-theme='dracula'] .editor-action,
+body.dark .code-editor-box .editor-action {
+  color: var(--editor-muted, #a0a3a7);
+}
+
+.code-editor-box[data-theme='dracula'] .editor-action--ghost:hover,
+body.dark .code-editor-box .editor-action--ghost:hover {
+  color: var(--editor-error, #e88080);
+  background: color-mix(in srgb, var(--editor-error, #e88080) 18%, transparent);
+}
+
+.code-editor-box[data-theme='dracula'] .editor-action--primary,
+body.dark .code-editor-box .editor-action--primary {
   color: #fff;
 }
 
-.code-editor-box[data-theme="dracula"] .copy-container:hover,
-.code-editor-box[data-theme="dracula"] .clear-container:hover {
-  background-color: #555555;
+.code-editor-box[data-theme='dracula'] :deep(.cm-gutters),
+body.dark .code-editor-box :deep(.cm-gutters) {
+  border-right-color: color-mix(in srgb, var(--editor-divider, #ffffff17) 80%, transparent);
+  background: color-mix(in srgb, var(--editor-body, #101014) 64%, var(--editor-card, #18181c));
+  color: var(--editor-placeholder, #8d9095);
 }
 
-/* 浅色主题样式 */
-.code-editor-box[data-theme="base16-light"] .copy-container,
-.code-editor-box[data-theme="base16-light"] .clear-container {
-  background-color: #E5E6EB;
-  color: #000;
-}
-
-.code-editor-box[data-theme="base16-light"] .copy-container:hover,
-.code-editor-box[data-theme="base16-light"] .clear-container:hover {
-  background-color: #D0D2D9;
-}
-
-.copy-text {
-  margin-left: 4px;
-  font-size: 12px;
-}
-
-/* 复制成功图标颜色 */
-.copy-container .el-icon-success {
-  color: #4A902D;
-  font-size: 14px;
+.code-editor-box[data-theme='dracula'] :deep(.cm-activeLine),
+.code-editor-box[data-theme='dracula'] :deep(.cm-activeLineGutter),
+body.dark .code-editor-box :deep(.cm-activeLine),
+body.dark .code-editor-box :deep(.cm-activeLineGutter) {
+  background-color: color-mix(in srgb, var(--editor-primary, #63e2b7) 12%, transparent);
 }
 </style>
